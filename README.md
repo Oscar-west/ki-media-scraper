@@ -19,10 +19,11 @@ Built as an empirical evidence tool for an op-ed on Norwegian AI discourse.
 |----|-------|-------------|
 | A | Business / produktivitet / hype | AI as tool, efficiency, investments, startups, implementation guides |
 | B | Regulering / juss / compliance | EU AI Act, privacy, GDPR, legal frameworks |
-| C | Geopolitikk / makt / sikkerhet | US vs China, Big Tech power concentration, digital sovereignty |
-| D | Samfunn / demokrati / eksistensiell refleksjon | Democracy, polarization, disinformation, AGI risk |
-| E | Utdanning / forskning | Schools, universities, academic research |
-| F | Annet | Doesn't fit other categories |
+| C | Arbeidsmarked / automatisering | AI replacing jobs, automation, workforce transition, reskilling |
+| D | Geopolitikk / makt / demokrati | US vs China, Big Tech power, digital sovereignty, defense, democracy |
+| E | Samfunn / kultur / eksistensiell refleksjon | How AI affects culture, free speech, polarization, disinformation, AGI risk |
+| F | Utdanning / forskning | Schools, universities, academic research |
+| G | Annet | Doesn't fit other categories |
 
 ## Sources
 
@@ -42,15 +43,13 @@ Classification happens in three steps:
 
 2. **Primary: Claude API** — Articles are batched (20 at a time) and sent to `claude-sonnet-4-6`. Per article, the API receives the title, source name, and up to 800 characters of article text (or 300 characters of RSS summary as fallback). Claude first writes a one-sentence *vinkling* (angle summary) describing the article's framing, then assigns a category. This "understand first, classify second" approach produces more accurate results. The prompt explicitly warns against defaulting to category A or F.
 
-3. **Fallback: Rule-based** — If `ANTHROPIC_API_KEY` is not set or the API fails, a keyword-scoring system takes over. Each category has weighted keyword lists (strong match = 3 points, weak = 1 point). Title matches count double. The scorer uses the full article text when available (title + summary + body text). Highest score wins; score 0 = category F. No *vinkling* is generated in this mode.
-
-The rule-based fallback is less accurate — it lacks semantic understanding and can't generate angle summaries — but uses article body text for better keyword coverage when available.
+An `ANTHROPIC_API_KEY` is required. The scraper will exit with a clear error message if it's not set.
 
 ## Hypothesis test
 
 The tool tests whether Norwegian AI coverage is dominated by business/hype framing:
 
-- **Metric:** Ratio of category A (business) to categories C+D (geopolitics + society)
+- **Metric:** Ratio of categories A+C (business + labor market) to categories D+E (geopolitics/democracy + society/culture)
 - **SUPPORTED:** ratio > 3:1
 - **PARTIALLY SUPPORTED:** ratio 1.5–3:1
 - **NOT SUPPORTED:** ratio < 1.5:1
@@ -60,7 +59,7 @@ The tool tests whether Norwegian AI coverage is dominated by business/hype frami
 ### Prerequisites
 
 - **Python 3.11+** — check with `python --version`
-- **Anthropic API key** (optional but recommended) — sign up at [console.anthropic.com](https://console.anthropic.com/) and create an API key. Without it the scraper still works, but classification quality is lower.
+- **Anthropic API key** (required) — sign up at [console.anthropic.com](https://console.anthropic.com/) and create an API key.
 
 ### 1. Clone and install
 
@@ -92,10 +91,10 @@ export ANTHROPIC_API_KEY="sk-ant-your-key-here"
 ### 3. Try a quick test run first
 
 ```bash
-python scraper.py --bare-regelbasert --verbose --maks 20
+python scraper.py --verbose --maks 20
 ```
 
-This skips the API, processes only 20 articles, and shows detailed logging. Takes about 30 seconds. Good for verifying everything works before a full run.
+This processes only 20 articles and shows detailed logging. Good for verifying everything works before a full run.
 
 ### 4. Run the full scraper
 
@@ -130,19 +129,10 @@ The terminal also prints a bar chart of the category distribution and the hypoth
 
 A full run with ~950 articles costs roughly **$1–2** in Claude API usage (article text increases input tokens). You can check your usage at [console.anthropic.com](https://console.anthropic.com/).
 
-### Without an API key
-
-```bash
-python scraper.py --bare-regelbasert
-```
-
-This uses keyword-scoring instead of the Claude API. It's free but less accurate — Google News articles often have minimal text for keywords to match against, though the scorer now uses article body text when available.
-
 ### Flags
 
 | Flag | Description |
 |------|-------------|
-| `--bare-regelbasert` | Skip Claude API, use keyword-scoring only |
 | `--verbose` / `-v` | Show detailed logging |
 | `--maks N` | Limit number of articles processed |
 

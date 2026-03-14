@@ -6,7 +6,7 @@ Verktøyet henter artikler fra norske medier via RSS og Google News,
 filtrerer AI-relaterte saker, klassifiserer dem etter innramming,
 og produserer analyse med hypotesetest.
 
-Bruk: python scraper.py [--bare-regelbasert] [--verbose] [--maks N]
+Bruk: python scraper.py [--verbose] [--maks N]
 """
 
 import argparse
@@ -45,23 +45,25 @@ RESULTATER_DIR = os.path.join(SCRIPT_DIR, "resultater")
 KATEGORIER = {
     "A": "Business / produktivitet / hype",
     "B": "Regulering / juss / compliance",
-    "C": "Geopolitikk / makt / sikkerhet",
-    "D": "Samfunn / demokrati / eksistensiell refleksjon",
-    "E": "Utdanning / forskning",
-    "F": "Annet",
+    "C": "Arbeidsmarked / automatisering",
+    "D": "Geopolitikk / makt / demokrati",
+    "E": "Samfunn / kultur / eksistensiell refleksjon",
+    "F": "Utdanning / forskning",
+    "G": "Annet",
 }
 
 KATEGORI_BESKRIVELSER = {
     "A": "AI som verktøy, effektivisering, investeringer, startups, datasentre, implementering",
     "B": "EU AI Act, KI-forordningen, personvern, GDPR, juridiske rammeverk",
-    "C": "USA vs Kina, Big Tech maktkonsentrasjon, digital suverenitet, forsvar, spionasje",
-    "D": "Demokrati, ytringsfrihet, polarisering, desinformasjon, jobbforskyvning, AGI-risiko",
-    "E": "Skoler, universiteter, juks, KI-kompetanse, akademisk forskning",
-    "F": "Passer ikke i andre kategorier",
+    "C": "AI erstatter jobber, automatisering av yrker, omstilling, kompetansebehov, arbeidsløshet",
+    "D": "USA vs Kina, Big Tech maktkonsentrasjon, digital suverenitet, forsvar, demokrati",
+    "E": "Hvordan AI påvirker kultur, ytringsfrihet, polarisering, desinformasjon, AGI-risiko",
+    "F": "Skoler, universiteter, juks, KI-kompetanse, akademisk forskning",
+    "G": "Passer ikke i andre kategorier",
 }
 
 # Søkeord for å filtrere AI-relaterte artikler.
-# Tupler: (mønster, er_streng) — strenge mønstre krever ordgrense.
+# Mønstre med \b krever ordgrense for å unngå falske treff.
 AI_SOKEORD = [
     r"kunstig intelligens",
     r"\bKI\b",
@@ -193,72 +195,6 @@ KILDER = {
     **_bygg_google_news_kilder(),
 }
 
-# Regelbasert klassifisering — nøkkelord per kategori
-# "sterke" gir 3 poeng, "svake" gir 1 poeng. Titteltreff teller dobbelt.
-REGELBASERT_SOKEORD = {
-    "A": {
-        "sterke": [
-            "revolusjonere", "game-changer", "disrupsjon", "milliard",
-            "investering", "startup", "lansering", "vekst", "innovasjon",
-            "produktivitet", "effektivisering", "gjennombrudd", "markedet",
-            "næringsliv", "slik bruker du", "implementering", "datasenter",
-            "bevilger", "satsing", "teknologiselskap",
-        ],
-        "svake": [
-            "bedrift", "selskap", "teknologi", "plattform", "løsning",
-            "partner", "kunde", "industri", "verktøy",
-        ],
-    },
-    "B": {
-        "sterke": [
-            "regulering", "lovforslag", "AI Act", "personvern",
-            "datatilsyn", "retningslinjer", "tilsyn", "forordning",
-            "stortinget", "GDPR", "compliance", "lovgivning",
-            "KI-forordningen", "høring", "rettigheter",
-        ],
-        "svake": [
-            "regler", "krav", "offentlig", "myndigheter", "politikk",
-            "ansvarlig", "transparent",
-        ],
-    },
-    "C": {
-        "sterke": [
-            "Kina", "USA", "kappløp", "suverenitet", "eksportkontroll",
-            "NATO", "forsvar", "militær", "stormakt", "teknologikrig",
-            "chips", "halvleder", "NVIDIA", "Taiwan", "geopolitikk",
-            "maktkonsentrasjon", "digital suverenitet", "Big Tech",
-        ],
-        "svake": [
-            "internasjonal", "global", "strategisk", "sikkerhet",
-            "konkurranse", "dominans",
-        ],
-    },
-    "D": {
-        "sterke": [
-            "demokrati", "ytringsfrihet", "polarisering", "desinformasjon",
-            "maktkonsentrasjon", "overvåkning", "kontroll", "eksistensiell",
-            "superintelligens", "AGI", "singularitet", "menneskelighet",
-            "fri vilje", "bevissthet", "jobbforskyvning", "erstatte jobber",
-            "trussel mot demokrati",
-        ],
-        "svake": [
-            "samfunn", "etikk", "moral", "fremtid", "konsekvens",
-            "bekymring", "risiko", "fare", "manipulasjon",
-        ],
-    },
-    "E": {
-        "sterke": [
-            "utdanning", "skole", "universitet", "student", "lærer",
-            "elev", "forskning", "akademi", "juks", "eksamen",
-            "kompetanse", "pensum", "høyskole", "doktorgrad",
-        ],
-        "svake": [
-            "kunnskap", "læring", "studie", "kurs", "undervisning",
-        ],
-    },
-    # F (Annet) har ingen søkeord — det er fallback ved score 0
-}
-
 # ============================================================================
 # DATAMODELL
 # ============================================================================
@@ -277,7 +213,6 @@ class Artikkel:
     vinkling: str = ""  # Én setning: artiklens vinkling/innramming (fra Claude)
     kategori: str = ""
     kategori_begrunnelse: str = ""
-    kategori_metode: str = ""  # "claude" eller "regelbasert"
     er_meningsstoff: bool = False
     sokeord_treff: list = field(default_factory=list)
 
@@ -638,18 +573,21 @@ Kategorier:
 
 A) Business / produktivitet / hype — AI som verktøy, effektivisering, investeringer, startups, datasentre, implementeringsguider, «slik bruker du ChatGPT»
 B) Regulering / juss / compliance — EU AI Act, KI-forordningen, personvern, GDPR, juridiske rammeverk, tilsyn
-C) Geopolitikk / makt / sikkerhet — USA vs Kina, Big Tech maktkonsentrasjon, digital suverenitet, forsvar, spionasje, teknologikappløp
-D) Samfunn / demokrati / eksistensiell refleksjon — demokrati, ytringsfrihet, polarisering, desinformasjon, jobbforskyvning, AGI-risiko, hva AI betyr for livene våre
-E) Utdanning / forskning — skoler, universiteter, juks, KI-kompetanse, akademisk forskning
-F) Annet — passer genuint ikke i noen av kategoriene A-E
+C) Arbeidsmarked / automatisering — AI erstatter jobber, automatisering av yrker, omstilling, kompetansebehov, arbeidsløshet
+D) Geopolitikk / makt / demokrati — USA vs Kina, Big Tech maktkonsentrasjon, digital suverenitet, forsvar, demokrati, maktkonsentrasjon
+E) Samfunn / kultur / eksistensiell refleksjon — hvordan AI påvirker kultur, ytringsfrihet, polarisering, desinformasjon, AGI-risiko
+F) Utdanning / forskning — skoler, universiteter, juks, KI-kompetanse, akademisk forskning
+G) Annet — passer genuint ikke i noen av kategoriene A-F
 
 VIKTIGE REGLER:
 - Velg kategorien som best beskriver artiklens HOVEDINNRAMMING, ikke alle temaer den berører.
 - IKKE default til kategori A med mindre artikkelen genuint fokuserer på business/produktivitet.
-- IKKE default til kategori F — de fleste AI-artikler passer i A-E. Bruk F kun når artikkelen virkelig ikke handler om noen av de andre temaene.
-- En artikkel om AI i helsevesenet som effektivisering = A. En artikkel om AI i helsevesenet som etisk bekymring = D.
-- En artikkel om at «regjeringen bevilger milliarder til KI» = A (investering/satsing), ikke D.
-- En artikkel om AI i skolen = E, ikke A.
+- IKKE default til kategori G — de fleste AI-artikler passer i A-F. Bruk G kun når artikkelen virkelig ikke handler om noen av de andre temaene.
+- En artikkel om AI i helsevesenet som effektivisering = A. En artikkel om AI i helsevesenet som etisk bekymring = E.
+- En artikkel om at «regjeringen bevilger milliarder til KI» = A (investering/satsing), ikke E.
+- En artikkel om at AI erstatter kundeservice-ansatte = C (arbeidsmarked), ikke A eller E.
+- En artikkel om AI i skolen = F, ikke A.
+- En artikkel om Big Tech og makt over demokratiet = D, ikke E.
 - Primærinnramming er det som teller.
 - Vær intellektuelt ærlig — ikke la bias påvirke klassifiseringen.
 
@@ -663,21 +601,27 @@ Svar BARE med JSON i dette formatet, ingen annen tekst:
 ]"""
 
 
+MAX_RETRIES = 2
+
+
 def klassifiser_claude(
     artikler: list[Artikkel], verbose: bool = False
 ) -> list[Artikkel]:
-    """Klassifiserer artikler med Claude API. Faller tilbake til regelbasert ved feil."""
+    """Klassifiserer artikler med Claude API."""
     api_key = os.environ.get("ANTHROPIC_API_KEY", "")
     if not api_key:
-        if verbose:
-            print("  INFO: ANTHROPIC_API_KEY ikke satt, bruker regelbasert klassifisering")
-        return klassifiser_regelbasert_alle(artikler, verbose)
+        print("\n[!] ANTHROPIC_API_KEY er ikke satt.")
+        print("    Sett miljøvariabelen før kjøring:")
+        print('    PowerShell:  $env:ANTHROPIC_API_KEY = "sk-ant-..."')
+        print('    Bash:        export ANTHROPIC_API_KEY="sk-ant-..."')
+        sys.exit(1)
 
     try:
         import anthropic
     except ImportError:
-        print("  ADVARSEL: anthropic-pakken ikke installert, bruker regelbasert")
-        return klassifiser_regelbasert_alle(artikler, verbose)
+        print("\n[!] anthropic-pakken er ikke installert.")
+        print("    Installer med: pip install anthropic")
+        sys.exit(1)
 
     client = anthropic.Anthropic(api_key=api_key)
     klassifiserte = []
@@ -692,7 +636,7 @@ def klassifiser_claude(
         if verbose:
             print(f"  Klassifiserer batch {batch_nr}/{total_batches} ({len(batch)} artikler)...")
 
-        # Bygg artikkel-JSON for promptet — inkluder artikkeltekst om tilgjengelig
+        # Bygg artikkel-JSON for promptet
         artikler_data = []
         for j, a in enumerate(batch):
             entry = {
@@ -700,7 +644,6 @@ def klassifiser_claude(
                 "tittel": a.tittel,
                 "kilde": a.kilde,
             }
-            # Send artikkeltekst (prioritert) eller sammendrag som fallback
             if a.artikkeltekst:
                 entry["tekst"] = a.artikkeltekst[:800]
             elif a.sammendrag:
@@ -711,106 +654,62 @@ def klassifiser_claude(
             artikler_json=json.dumps(artikler_data, ensure_ascii=False, indent=2)
         )
 
-        try:
-            response = client.messages.create(
-                model="claude-sonnet-4-6",
-                max_tokens=4000,
-                messages=[{"role": "user", "content": prompt}],
-            )
-
-            # Parse JSON-svar
-            svar_tekst = response.content[0].text.strip()
-            # Prøv å hente JSON fra svaret
+        # Retry-logikk
+        siste_feil = None
+        for forsok in range(MAX_RETRIES + 1):
             try:
-                resultater = json.loads(svar_tekst)
-            except json.JSONDecodeError:
-                # Prøv å finne JSON-array i teksten
-                json_match = re.search(r"\[.*\]", svar_tekst, re.DOTALL)
-                if json_match:
-                    resultater = json.loads(json_match.group())
-                else:
-                    raise ValueError("Kunne ikke parse JSON fra Claude-svar")
+                response = client.messages.create(
+                    model="claude-sonnet-4-6",
+                    max_tokens=4000,
+                    messages=[{"role": "user", "content": prompt}],
+                )
 
-            # Tilordne kategorier og vinklinger
-            resultat_map = {r["id"]: r for r in resultater}
-            for j, a in enumerate(batch):
-                if j in resultat_map:
-                    r = resultat_map[j]
-                    a.kategori = r.get("kategori", "F").upper()
-                    a.vinkling = r.get("vinkling", "")
-                    a.kategori_begrunnelse = r.get("begrunnelse", "")
-                    a.kategori_metode = "claude"
-                    if a.kategori not in KATEGORIER:
-                        a.kategori = "F"
-                else:
-                    # Mangler i svaret — bruk regelbasert
-                    a.kategori = _klassifiser_regelbasert_en(a)
-                    a.kategori_metode = "regelbasert"
-                klassifiserte.append(a)
+                # Parse JSON-svar
+                svar_tekst = response.content[0].text.strip()
+                try:
+                    resultater = json.loads(svar_tekst)
+                except json.JSONDecodeError:
+                    json_match = re.search(r"\[.*\]", svar_tekst, re.DOTALL)
+                    if json_match:
+                        resultater = json.loads(json_match.group())
+                    else:
+                        raise ValueError("Kunne ikke parse JSON fra Claude-svar")
 
-            # Vent litt mellom API-kall
-            if i + batch_storrelse < len(artikler):
-                time.sleep(1.0)
+                # Tilordne kategorier og vinklinger
+                resultat_map = {r["id"]: r for r in resultater}
+                for j, a in enumerate(batch):
+                    if j in resultat_map:
+                        r = resultat_map[j]
+                        a.kategori = r.get("kategori", "G").upper()
+                        a.vinkling = r.get("vinkling", "")
+                        a.kategori_begrunnelse = r.get("begrunnelse", "")
+                        if a.kategori not in KATEGORIER:
+                            a.kategori = "G"
+                    else:
+                        a.kategori = "G"
+                        a.kategori_begrunnelse = "Mangler i Claude-svar"
+                    klassifiserte.append(a)
 
-        except Exception as e:
-            print(f"  ADVARSEL: Claude API feilet for batch {batch_nr}: {e}")
-            print("  Faller tilbake til regelbasert for denne batchen")
-            for a in batch:
-                a.kategori = _klassifiser_regelbasert_en(a)
-                a.kategori_metode = "regelbasert"
-                klassifiserte.append(a)
+                siste_feil = None
+                break  # Suksess — gå videre til neste batch
+
+            except Exception as e:
+                siste_feil = e
+                if forsok < MAX_RETRIES:
+                    print(f"  ADVARSEL: Batch {batch_nr} feilet (forsøk {forsok + 1}): {e}")
+                    print(f"  Prøver på nytt om 2 sekunder...")
+                    time.sleep(2.0)
+
+        if siste_feil is not None:
+            print(f"\n[!] Claude API feilet for batch {batch_nr} etter {MAX_RETRIES + 1} forsøk: {siste_feil}")
+            print(f"    {len(klassifiserte)} av {len(artikler)} artikler ble klassifisert før feilen.")
+            sys.exit(1)
+
+        # Vent litt mellom API-kall
+        if i + batch_storrelse < len(artikler):
+            time.sleep(1.0)
 
     return klassifiserte
-
-
-# ============================================================================
-# KLASSIFISERING — REGELBASERT FALLBACK
-# ============================================================================
-
-
-def _klassifiser_regelbasert_en(artikkel: Artikkel) -> str:
-    """Klassifiserer én artikkel basert på nøkkelord-scoring."""
-    tittel = artikkel.tittel.lower()
-    sammendrag = artikkel.sammendrag.lower()
-    artikkeltekst = artikkel.artikkeltekst.lower() if artikkel.artikkeltekst else ""
-    tekst = f"{tittel} {sammendrag} {artikkeltekst}"
-
-    beste_kategori = "F"
-    beste_score = 0
-
-    for kategori, sokeord in REGELBASERT_SOKEORD.items():
-        score = 0
-
-        for ord in sokeord.get("sterke", []):
-            ord_lower = ord.lower()
-            # Titteltreff teller dobbelt
-            if ord_lower in tittel:
-                score += 6  # 3 (sterk) × 2 (tittel)
-            elif ord_lower in tekst:
-                score += 3
-
-        for ord in sokeord.get("svake", []):
-            ord_lower = ord.lower()
-            if ord_lower in tittel:
-                score += 2  # 1 (svak) × 2 (tittel)
-            elif ord_lower in tekst:
-                score += 1
-
-        if score > beste_score:
-            beste_score = score
-            beste_kategori = kategori
-
-    return beste_kategori
-
-
-def klassifiser_regelbasert_alle(
-    artikler: list[Artikkel], verbose: bool = False
-) -> list[Artikkel]:
-    """Klassifiserer alle artikler med regelbasert metode."""
-    for a in artikler:
-        a.kategori = _klassifiser_regelbasert_en(a)
-        a.kategori_metode = "regelbasert"
-    return artikler
 
 
 # ============================================================================
@@ -831,13 +730,12 @@ def analyser(artikler: list[Artikkel]) -> dict:
             "hypotese_ratio": 0,
             "hypotese_resultat": "IKKE NOK DATA",
             "kilder_fordeling": {},
-            "metode_fordeling": {"claude": 0, "regelbasert": 0},
         }
 
     # Fordeling per kategori
     fordeling = {k: 0 for k in KATEGORIER}
     for a in artikler:
-        kat = a.kategori if a.kategori in KATEGORIER else "F"
+        kat = a.kategori if a.kategori in KATEGORIER else "G"
         fordeling[kat] += 1
 
     prosent = {k: (v / total) * 100 for k, v in fordeling.items()}
@@ -853,12 +751,6 @@ def analyser(artikler: list[Artikkel]) -> dict:
     kilder_fordeling = dict(
         sorted(kilder_fordeling.items(), key=lambda x: x[1], reverse=True)
     )
-
-    # Klassifiseringsmetode-fordeling
-    metode_fordeling = {"claude": 0, "regelbasert": 0}
-    for a in artikler:
-        if a.kategori_metode in metode_fordeling:
-            metode_fordeling[a.kategori_metode] += 1
 
     # Datoer og årsfordeling
     datoer = []
@@ -878,9 +770,9 @@ def analyser(artikler: list[Artikkel]) -> dict:
         aars_fordeling[aar] = aars_fordeling.get(aar, 0) + 1
     aars_fordeling = dict(sorted(aars_fordeling.items()))
 
-    # Hypotesetest: business (A) vs geopolitikk+samfunn (C+D)
-    business = fordeling["A"]
-    dybde = fordeling["C"] + fordeling["D"]
+    # Hypotesetest: business+arbeidsmarked (A+C) vs geopolitikk+samfunn (D+E)
+    business = fordeling["A"] + fordeling["C"]
+    dybde = fordeling["D"] + fordeling["E"]
 
     if dybde > 0:
         ratio = business / dybde
@@ -909,7 +801,6 @@ def analyser(artikler: list[Artikkel]) -> dict:
         "hypotese_ratio": round(ratio, 2) if ratio != float("inf") else "uendelig",
         "hypotese_resultat": hypotese_resultat,
         "kilder_fordeling": kilder_fordeling,
-        "metode_fordeling": metode_fordeling,
         "tidligste_dato": tidligste_dato,
         "seneste_dato": seneste_dato,
         "aars_fordeling": aars_fordeling,
@@ -934,10 +825,6 @@ def skriv_terminal_rapport(artikler: list[Artikkel], statistikk: dict):
     print("  NORSK AI-MEDIEANALYSE")
     print("=" * 60)
     print(f"\nAntall artikler analysert: {total}")
-    print(
-        f"Klassifiseringsmetode: Claude API ({statistikk['metode_fordeling']['claude']}), "
-        f"regelbasert ({statistikk['metode_fordeling']['regelbasert']})"
-    )
     print(
         f"Meningsstoff: {statistikk['meningsstoff_antall']} | "
         f"Nyheter: {statistikk['nyheter_antall']}"
@@ -968,9 +855,9 @@ def skriv_terminal_rapport(artikler: list[Artikkel], statistikk: dict):
         print(f"  {kat_id}) {kort_navn} {bar} {pst:5.1f}% ({antall})")
 
     print(f"\n--- Hypotesetest ---")
-    print(f"Business/hype (A): {statistikk['business_antall']} artikler")
-    print(f"Geopolitikk+samfunn (C+D): {statistikk['dybde_antall']} artikler")
-    print(f"Ratio A/(C+D): {statistikk['hypotese_ratio']}")
+    print(f"Business+arbeidsmarked (A+C): {statistikk['business_antall']} artikler")
+    print(f"Geopolitikk+samfunn (D+E): {statistikk['dybde_antall']} artikler")
+    print(f"Ratio (A+C)/(D+E): {statistikk['hypotese_ratio']}")
     print(f"Resultat: {statistikk['hypotese_resultat']}")
 
     if statistikk["hypotese_resultat"] == "STØTTET":
@@ -1017,11 +904,11 @@ def skriv_filer(
     with open(os.path.join(RESULTATER_DIR, "artikler.csv"), "w", encoding="utf-8", newline="") as f:
         writer = csv.writer(f)
         writer.writerow([
-            "kategori", "vinkling", "tittel", "kilde", "dato", "url", "klassifisering_metode"
+            "kategori", "vinkling", "tittel", "kilde", "dato", "url"
         ])
         for a in artikler:
             writer.writerow([
-                a.kategori, a.vinkling, a.tittel, a.kilde, a.dato, a.url, a.kategori_metode
+                a.kategori, a.vinkling, a.tittel, a.kilde, a.dato, a.url
             ])
 
     # --- raw_results.csv ---
@@ -1087,9 +974,9 @@ def _skriv_rapport_md(artikler: list[Artikkel], statistikk: dict):
         f"**Spørsmål:** Er norsk AI-dekning dominert av business/hype-perspektiver "
         f"på bekostning av geopolitikk og samfunnsrefleksjon?\n"
     )
-    linjer.append(f"- Business/hype (A): {statistikk['business_antall']} artikler")
-    linjer.append(f"- Geopolitikk + samfunn (C+D): {statistikk['dybde_antall']} artikler")
-    linjer.append(f"- Ratio A/(C+D): **{statistikk['hypotese_ratio']}**")
+    linjer.append(f"- Business + arbeidsmarked (A+C): {statistikk['business_antall']} artikler")
+    linjer.append(f"- Geopolitikk + samfunn (D+E): {statistikk['dybde_antall']} artikler")
+    linjer.append(f"- Ratio (A+C)/(D+E): **{statistikk['hypotese_ratio']}**")
     linjer.append(f"- Resultat: **{statistikk['hypotese_resultat']}**\n")
     linjer.append(
         "*(STØTTET = ratio > 3:1, DELVIS STØTTET = 1.5–3:1, IKKE STØTTET = < 1.5:1)*\n"
@@ -1118,13 +1005,13 @@ def _skriv_rapport_md(artikler: list[Artikkel], statistikk: dict):
     # Oppsummering på norsk
     linjer.append("## Oppsummering\n")
     if total > 0:
-        a_pst = statistikk["prosent"]["A"]
-        cd_pst = statistikk["prosent"]["C"] + statistikk["prosent"]["D"]
+        ac_pst = statistikk["prosent"]["A"] + statistikk["prosent"]["C"]
+        de_pst = statistikk["prosent"]["D"] + statistikk["prosent"]["E"]
         linjer.append(
             f"Analysen av {total} AI-relaterte artikler fra norske medier viser at "
-            f"{a_pst:.0f} prosent av dekningen er innrammet som business, produktivitet "
-            f"eller hype (kategori A), mens {cd_pst:.0f} prosent handler om geopolitikk, "
-            f"maktkonsentrasjon, demokrati eller eksistensiell refleksjon (kategori C og D). "
+            f"{ac_pst:.0f} prosent av dekningen er innrammet som business, produktivitet "
+            f"eller arbeidsmarked (kategori A og C), mens {de_pst:.0f} prosent handler om "
+            f"geopolitikk, makt, demokrati eller samfunn og kultur (kategori D og E). "
             f"Forholdet mellom business-dekning og dybdedekning er {statistikk['hypotese_ratio']}:1. "
             f"Hypotesen om at norsk AI-debatt er dominert av overflatiske perspektiver "
             f"er **{statistikk['hypotese_resultat'].lower()}**."
@@ -1138,9 +1025,7 @@ def _skriv_rapport_md(artikler: list[Artikkel], statistikk: dict):
     linjer.append(
         f"Artikler ble hentet fra {len(KILDER)} kilder via RSS og Google News. "
         f"AI-relaterte artikler ble filtrert basert på nøkkelord i tittel og sammendrag. "
-        f"Klassifisering ble utført med Claude API "
-        f"({statistikk['metode_fordeling']['claude']} artikler) og regelbasert "
-        f"nøkkelord-scoring ({statistikk['metode_fordeling']['regelbasert']} artikler)."
+        f"Klassifisering ble utført med Claude API (claude-sonnet-4-6)."
     )
     linjer.append("")
 
@@ -1188,11 +1073,6 @@ def _bygg_raw_results(
 def main():
     parser = argparse.ArgumentParser(
         description="Norsk AI-medieskraper — samler og klassifiserer AI-artikler"
-    )
-    parser.add_argument(
-        "--bare-regelbasert",
-        action="store_true",
-        help="Hopp over Claude API, bruk kun regelbasert klassifisering",
     )
     parser.add_argument(
         "--verbose", "-v",
@@ -1244,16 +1124,11 @@ def main():
         beholdt_etter_maks = None
 
     # 5. Hent artikkeltekst fra URL-er (for bedre klassifisering)
-    if not args.bare_regelbasert:
-        ai_artikler = hent_tekst_for_alle(ai_artikler, verbose=args.verbose)
+    ai_artikler = hent_tekst_for_alle(ai_artikler, verbose=args.verbose)
 
-    # 6. Klassifiser
+    # 6. Klassifiser med Claude API
     print(f"\n--- Klassifiserer {len(ai_artikler)} artikler ---")
-    if args.bare_regelbasert:
-        print("  Bruker regelbasert klassifisering (--bare-regelbasert)")
-        ai_artikler = klassifiser_regelbasert_alle(ai_artikler, verbose=args.verbose)
-    else:
-        ai_artikler = klassifiser_claude(ai_artikler, verbose=args.verbose)
+    ai_artikler = klassifiser_claude(ai_artikler, verbose=args.verbose)
 
     # 7. Bygg raw_results med status
     raw_results = _bygg_raw_results(
