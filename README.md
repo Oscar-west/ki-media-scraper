@@ -10,8 +10,8 @@ Built as an empirical evidence tool for an op-ed on Norwegian AI discourse.
 2. **Filters** down to AI-related articles (~950 unique) using keyword matching
 3. **Deduplicates** using URL normalization and title similarity
 4. **Fetches article text** from each URL to give the classifier real content to work with
-5. **Classifies** each article: Claude reads the content, writes a one-sentence angle summary (*vinkling*), then assigns one of 6 framing categories
-6. **Analyzes** the distribution and runs a hypothesis test
+5. **Classifies** each article: Claude reads the content, writes a one-sentence angle summary (*vinkling*), then assigns one of 7 framing categories
+6. **Analyzes** the distribution across categories
 
 ## Categories
 
@@ -41,18 +41,9 @@ Classification happens in three steps:
 
 1. **Article text fetching** — For each article, the scraper fetches the actual page content and extracts the body text (up to 1500 characters). This works for direct RSS sources (NRK, VG, Aftenposten, Dagbladet, E24). Google News redirect URLs can't be resolved server-side, so those articles are classified from title only.
 
-2. **Primary: Claude API** — Articles are batched (20 at a time) and sent to `claude-sonnet-4-6`. Per article, the API receives the title, source name, and up to 800 characters of article text (or 300 characters of RSS summary as fallback). Claude first writes a one-sentence *vinkling* (angle summary) describing the article's framing, then assigns a category. This "understand first, classify second" approach produces more accurate results. The prompt explicitly warns against defaulting to category A or F.
+2. **Primary: Claude API** — Articles are batched (20 at a time) and sent to `claude-sonnet-4-6`. Per article, the API receives the title, source name, and up to 800 characters of article text (or 300 characters of RSS summary as fallback). Claude first writes a one-sentence *vinkling* (angle summary) describing the article's framing, then assigns a category. This "understand first, classify second" approach produces more accurate results. The prompt explicitly warns against defaulting to category A or G.
 
 An `ANTHROPIC_API_KEY` is required. The scraper will exit with a clear error message if it's not set.
-
-## Hypothesis test
-
-The tool tests whether Norwegian AI coverage is dominated by business/hype framing:
-
-- **Metric:** Ratio of categories A+C (business + labor market) to categories D+E (geopolitics/democracy + society/culture)
-- **SUPPORTED:** ratio > 3:1
-- **PARTIALLY SUPPORTED:** ratio 1.5–3:1
-- **NOT SUPPORTED:** ratio < 1.5:1
 
 ## Getting started
 
@@ -118,12 +109,12 @@ After the run, you'll find 5 files in `resultater/`:
 | File | What it contains |
 |------|------------------|
 | `artikler.json` | Every article with title, source, date, URL, article text, angle summary (*vinkling*), category, and justification |
-| `statistikk.json` | Aggregated numbers — category counts, percentages, yearly breakdown, hypothesis test result |
+| `statistikk.json` | Aggregated numbers — category counts, percentages, yearly breakdown, source distribution |
 | `artikler.csv` | Flat table with category, vinkling, title, source, date, URL — open in Excel/Google Sheets for inspection |
 | `raw_results.csv` | All AI-filtered articles with status: `beholdt`, `fjernet (duplikat)`, or `fjernet (maks-begrensning)` — full pipeline traceability |
 | `rapport.md` | Human-readable report in Norwegian — copy-paste numbers directly into your op-ed |
 
-The terminal also prints a bar chart of the category distribution and the hypothesis test verdict.
+The terminal also prints a bar chart of the category distribution.
 
 ### Cost
 
@@ -138,9 +129,9 @@ A full run with ~950 articles costs roughly **$1–2** in Claude API usage (arti
 
 ## Design principles
 
-- **Intellectual honesty** — The tool is not optimized to confirm the hypothesis. Google News queries cover the full spectrum of AI discourse. If Norwegian media *does* discuss power and democracy, the data will show it.
+- **Intellectual honesty** — Google News queries cover the full spectrum of AI discourse, not just business/hype terms. The data reflects what Norwegian media actually covers.
 - **Classification precision** — Primary framing determines the category. An article about "government investing billions in AI" is A (business), not D (society), even if it mentions societal impact in passing.
-- **Fail gracefully** — One failing source never crashes the script. API errors fall back to rule-based classification silently.
+- **Fail gracefully** — One failing source never crashes the script. API errors are retried before aborting.
 
 ## License
 

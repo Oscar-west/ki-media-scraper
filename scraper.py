@@ -4,7 +4,7 @@ Norsk AI-medieskraper — samler og klassifiserer norske medieartikler om KI.
 
 Verktøyet henter artikler fra norske medier via RSS og Google News,
 filtrerer AI-relaterte saker, klassifiserer dem etter innramming,
-og produserer analyse med hypotesetest.
+og produserer analyse av kategorifordelingen.
 
 Bruk: python scraper.py [--verbose] [--maks N]
 """
@@ -718,7 +718,7 @@ def klassifiser_claude(
 
 
 def analyser(artikler: list[Artikkel]) -> dict:
-    """Beregner statistikk og utfører hypotesetest."""
+    """Beregner statistikk over kategorifordeling."""
     total = len(artikler)
     if total == 0:
         return {
@@ -727,8 +727,6 @@ def analyser(artikler: list[Artikkel]) -> dict:
             "prosent": {k: 0.0 for k in KATEGORIER},
             "meningsstoff_antall": 0,
             "nyheter_antall": 0,
-            "hypotese_ratio": 0,
-            "hypotese_resultat": "IKKE NOK DATA",
             "kilder_fordeling": {},
         }
 
@@ -747,7 +745,6 @@ def analyser(artikler: list[Artikkel]) -> dict:
     kilder_fordeling: dict[str, int] = {}
     for a in artikler:
         kilder_fordeling[a.kilde] = kilder_fordeling.get(a.kilde, 0) + 1
-    # Sorter etter antall
     kilder_fordeling = dict(
         sorted(kilder_fordeling.items(), key=lambda x: x[1], reverse=True)
     )
@@ -770,36 +767,12 @@ def analyser(artikler: list[Artikkel]) -> dict:
         aars_fordeling[aar] = aars_fordeling.get(aar, 0) + 1
     aars_fordeling = dict(sorted(aars_fordeling.items()))
 
-    # Hypotesetest: business+arbeidsmarked (A+C) vs geopolitikk+samfunn (D+E)
-    business = fordeling["A"] + fordeling["C"]
-    dybde = fordeling["D"] + fordeling["E"]
-
-    if dybde > 0:
-        ratio = business / dybde
-    elif business > 0:
-        ratio = float("inf")
-    else:
-        ratio = 0
-
-    if total < 10:
-        hypotese_resultat = "IKKE NOK DATA"
-    elif ratio > 3.0:
-        hypotese_resultat = "STØTTET"
-    elif ratio >= 1.5:
-        hypotese_resultat = "DELVIS STØTTET"
-    else:
-        hypotese_resultat = "IKKE STØTTET"
-
     return {
         "total": total,
         "fordeling": fordeling,
         "prosent": prosent,
         "meningsstoff_antall": meningsstoff,
         "nyheter_antall": total - meningsstoff,
-        "business_antall": business,
-        "dybde_antall": dybde,
-        "hypotese_ratio": round(ratio, 2) if ratio != float("inf") else "uendelig",
-        "hypotese_resultat": hypotese_resultat,
         "kilder_fordeling": kilder_fordeling,
         "tidligste_dato": tidligste_dato,
         "seneste_dato": seneste_dato,
@@ -853,21 +826,6 @@ def skriv_terminal_rapport(artikler: list[Artikkel], statistikk: dict):
         # Kort etikett
         kort_navn = kat_navn[:35].ljust(35)
         print(f"  {kat_id}) {kort_navn} {bar} {pst:5.1f}% ({antall})")
-
-    print(f"\n--- Hypotesetest ---")
-    print(f"Business+arbeidsmarked (A+C): {statistikk['business_antall']} artikler")
-    print(f"Geopolitikk+samfunn (D+E): {statistikk['dybde_antall']} artikler")
-    print(f"Ratio (A+C)/(D+E): {statistikk['hypotese_ratio']}")
-    print(f"Resultat: {statistikk['hypotese_resultat']}")
-
-    if statistikk["hypotese_resultat"] == "STØTTET":
-        print("  → Norsk AI-dekning er dominert av business/hype-perspektiver.")
-    elif statistikk["hypotese_resultat"] == "DELVIS STØTTET":
-        print("  → Business/hype dominerer, men det finnes noe dybdedekning.")
-    elif statistikk["hypotese_resultat"] == "IKKE STØTTET":
-        print("  → Norsk AI-dekning har bredere perspektiver enn antatt.")
-    else:
-        print("  → For få artikler til å trekke konklusjon.")
 
     # Topp kilder
     print("\nTopp kilder:")
@@ -968,20 +926,6 @@ def _skriv_rapport_md(artikler: list[Artikkel], statistikk: dict):
         linjer.append(f"| {kat_id}: {kat_navn} | {antall} | {pst:.1f}% |")
     linjer.append("")
 
-    # Hypotesetest
-    linjer.append("## Hypotesetest\n")
-    linjer.append(
-        f"**Spørsmål:** Er norsk AI-dekning dominert av business/hype-perspektiver "
-        f"på bekostning av geopolitikk og samfunnsrefleksjon?\n"
-    )
-    linjer.append(f"- Business + arbeidsmarked (A+C): {statistikk['business_antall']} artikler")
-    linjer.append(f"- Geopolitikk + samfunn (D+E): {statistikk['dybde_antall']} artikler")
-    linjer.append(f"- Ratio (A+C)/(D+E): **{statistikk['hypotese_ratio']}**")
-    linjer.append(f"- Resultat: **{statistikk['hypotese_resultat']}**\n")
-    linjer.append(
-        "*(STØTTET = ratio > 3:1, DELVIS STØTTET = 1.5–3:1, IKKE STØTTET = < 1.5:1)*\n"
-    )
-
     # Topp 5 eksempler per kategori
     linjer.append("## Eksempler per kategori\n")
     for kat_id, kat_navn in KATEGORIER.items():
@@ -1005,16 +949,17 @@ def _skriv_rapport_md(artikler: list[Artikkel], statistikk: dict):
     # Oppsummering på norsk
     linjer.append("## Oppsummering\n")
     if total > 0:
-        ac_pst = statistikk["prosent"]["A"] + statistikk["prosent"]["C"]
-        de_pst = statistikk["prosent"]["D"] + statistikk["prosent"]["E"]
+        # Finn de to største kategoriene
+        sortert = sorted(statistikk["fordeling"].items(), key=lambda x: x[1], reverse=True)
+        storste = sortert[0]
+        nest_storste = sortert[1] if len(sortert) > 1 else None
         linjer.append(
             f"Analysen av {total} AI-relaterte artikler fra norske medier viser at "
-            f"{ac_pst:.0f} prosent av dekningen er innrammet som business, produktivitet "
-            f"eller arbeidsmarked (kategori A og C), mens {de_pst:.0f} prosent handler om "
-            f"geopolitikk, makt, demokrati eller samfunn og kultur (kategori D og E). "
-            f"Forholdet mellom business-dekning og dybdedekning er {statistikk['hypotese_ratio']}:1. "
-            f"Hypotesen om at norsk AI-debatt er dominert av overflatiske perspektiver "
-            f"er **{statistikk['hypotese_resultat'].lower()}**."
+            f"den største kategorien er {storste[0]} ({KATEGORIER[storste[0]]}) "
+            f"med {statistikk['prosent'][storste[0]]:.0f} prosent av dekningen"
+            + (f", etterfulgt av {nest_storste[0]} ({KATEGORIER[nest_storste[0]]}) "
+               f"med {statistikk['prosent'][nest_storste[0]]:.0f} prosent."
+               if nest_storste else ".")
         )
     else:
         linjer.append("Ingen artikler ble funnet for analyse.")
