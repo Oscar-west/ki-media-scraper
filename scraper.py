@@ -423,7 +423,7 @@ def hent_artikkeltekst(url: str) -> str:
 
         return _ekstraher_tekst_fra_html(resp.text)
 
-    except (requests.RequestException, Exception):
+    except Exception:
         return ""
 
 
@@ -633,8 +633,9 @@ def klassifiser_claude(
         batch_nr = i // batch_storrelse + 1
         total_batches = (len(artikler) + batch_storrelse - 1) // batch_storrelse
 
-        if verbose:
-            print(f"  Klassifiserer batch {batch_nr}/{total_batches} ({len(batch)} artikler)...")
+        ferdig = i
+        prosent = (ferdig / len(artikler)) * 100
+        print(f"  Batch {batch_nr}/{total_batches} — {ferdig}/{len(artikler)} artikler klassifisert ({prosent:.0f}%) ...")
 
         # Bygg artikkel-JSON for promptet
         artikler_data = []
@@ -703,12 +704,14 @@ def klassifiser_claude(
         if siste_feil is not None:
             print(f"\n[!] Claude API feilet for batch {batch_nr} etter {MAX_RETRIES + 1} forsøk: {siste_feil}")
             print(f"    {len(klassifiserte)} av {len(artikler)} artikler ble klassifisert før feilen.")
-            sys.exit(1)
+            print("    Returnerer delvis klassifiserte resultater.")
+            return klassifiserte
 
         # Vent litt mellom API-kall
         if i + batch_storrelse < len(artikler):
             time.sleep(1.0)
 
+    print(f"  {len(klassifiserte)}/{len(artikler)} artikler klassifisert (100%)")
     return klassifiserte
 
 
@@ -838,6 +841,31 @@ def skriv_terminal_rapport(artikler: list[Artikkel], statistikk: dict):
 # ============================================================================
 # FIL-OUTPUT
 # ============================================================================
+
+
+def skriv_backup_pre_klassifisering(artikler: list[Artikkel], verbose: bool = False):
+    """Skriver backup av alle filtrerte artikler til CSV og terminal før API-klassifisering."""
+    os.makedirs(RESULTATER_DIR, exist_ok=True)
+    backup_path = os.path.join(RESULTATER_DIR, "backup_pre_klassifisering.csv")
+
+    with open(backup_path, "w", encoding="utf-8", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow([
+            "nr", "tittel", "url", "kilde", "dato",
+            "sammendrag", "artikkeltekst", "er_meningsstoff", "sokeord_treff",
+        ])
+        for i, a in enumerate(artikler, 1):
+            writer.writerow([
+                i, a.tittel, a.url, a.kilde, a.dato,
+                a.sammendrag, a.artikkeltekst, a.er_meningsstoff,
+                ", ".join(a.sokeord_treff),
+            ])
+
+    print(f"\n--- Backup: {len(artikler)} artikler klar for klassifisering ---")
+    for i, a in enumerate(artikler, 1):
+        print(f"  {i:3d}. [{a.kilde}] {a.tittel}")
+        print(f"       {a.url}")
+    print(f"\n  Backup lagret: {backup_path}")
 
 
 def skriv_filer(
@@ -1070,6 +1098,9 @@ def main():
 
     # 5. Hent artikkeltekst fra URL-er (for bedre klassifisering)
     ai_artikler = hent_tekst_for_alle(ai_artikler, verbose=args.verbose)
+
+    # 5b. Backup: lagre alle filtrerte artikler før klassifisering
+    skriv_backup_pre_klassifisering(ai_artikler, verbose=args.verbose)
 
     # 6. Klassifiser med Claude API
     print(f"\n--- Klassifiserer {len(ai_artikler)} artikler ---")

@@ -1,13 +1,13 @@
 # Norsk AI-medieskraper
 
-A Python CLI tool that scrapes Norwegian media for AI-related articles, classifies them by framing, and tests whether coverage is dominated by business/hype perspectives at the expense of deeper societal discourse.
+A Python CLI tool that scrapes Norwegian media for AI-related articles and classifies them by framing.
 
 Built as an empirical evidence tool for an op-ed on Norwegian AI discourse.
 
 ## What it does
 
-1. **Collects** ~2700 articles from 46 sources (RSS feeds + Google News with 3-year time windows)
-2. **Filters** down to AI-related articles (~950 unique) using keyword matching
+1. **Collects** ~4500 articles from 46 sources (RSS feeds + Google News with 3-year time windows)
+2. **Filters** down to AI-related articles (~1300 unique) using keyword matching
 3. **Deduplicates** using URL normalization and title similarity
 4. **Fetches article text** from each URL to give the classifier real content to work with
 5. **Classifies** each article: Claude reads the content, writes a one-sentence angle summary (*vinkling*), then assigns one of 7 framing categories
@@ -134,5 +134,3 @@ A full run with ~950 articles costs roughly **$1–2** in Claude API usage (arti
 - **Fail gracefully** — One failing source never crashes the script. API errors are retried before aborting.
 
 ## License
-
-MIT
