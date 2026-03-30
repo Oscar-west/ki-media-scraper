@@ -120,17 +120,21 @@ The terminal also prints a bar chart of the category distribution.
 
 A full run with ~950 articles costs roughly **$1–2** in Claude API usage (article text increases input tokens). You can check your usage at [console.anthropic.com](https://console.anthropic.com/).
 
+### Limitations
+
+- **Source coverage is narrow.** Only ~10 outlets are directly targeted via RSS feeds and site-specific Google News queries. The remaining sources in the dataset were discovered incidentally through general Google News queries. The dataset is dominated by national outlets — NRK, Aftenposten, VG, and DN account for roughly 35% of all articles. Regional papers, podcasts, video, social media, and academic publications are not covered.
+
+- **Article text is often unavailable.** Google News redirect URLs cannot be resolved server-side, so articles sourced through Google News are classified from title and short RSS summary only (~50–100 words), not body text. Even when body text is fetched successfully, only the first ~800 characters are sent to the classifier. This limits classification accuracy, particularly for articles where the framing only becomes clear deeper in the text.
+
+- **Classification has no validation layer.** All classification is single-pass LLM (Claude Sonnet) with no human validation sample, no inter-rater reliability check, and no confusion matrix. Articles missing from a batch response are silently assigned category G. There is no way to estimate the error rate without manual review.
+
+- **Keyword filtering is coarse.** Articles are selected using 19 regex patterns with binary matching. Broad terms like "algoritme" and "automatisering" match articles unrelated to AI. Conversely, newer AI-specific terms (Gemini, DeepSeek, RAG, agentic) are absent from the keyword list. Filtering operates on title and summary only — an article that discusses AI exclusively in the body will be excluded.
+
 ### Flags
 
 | Flag | Description |
 |------|-------------|
 | `--verbose` / `-v` | Show detailed logging |
 | `--maks N` | Limit number of articles processed |
-
-## Design principles
-
-- **Intellectual honesty** — Google News queries cover the full spectrum of AI discourse, not just business/hype terms. The data reflects what Norwegian media actually covers.
-- **Classification precision** — Primary framing determines the category. An article about "government investing billions in AI" is A (business), not D (society), even if it mentions societal impact in passing.
-- **Fail gracefully** — One failing source never crashes the script. API errors are retried before aborting.
 
 ## License
